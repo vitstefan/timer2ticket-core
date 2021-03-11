@@ -35,7 +35,3 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build container image
       uses: docker/build-push-action@v2
-      with:
-        context: .
-        tag_with_sha: true
-        tag_with_ref: true
