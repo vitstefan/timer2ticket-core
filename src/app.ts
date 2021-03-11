@@ -1,8 +1,7 @@
 import express from 'express';
 import { Queue } from 'typescript-collections';
 import cron from 'node-cron';
-import sentry from '@sentry/node';
-import tracing from '@sentry/tracing';
+// import sentry from '@sentry/node';
 import bodyParser from 'body-parser';
 import { ConfigSyncJob } from './jobs/config_sync_job';
 import { SyncJob } from './jobs/sync_job';
@@ -15,10 +14,10 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-sentry.init({
-  dsn: "https://598d6ddbb7a14dd988bb2f1cbecdac2a@sentry.jagu.cz/29",
-  tracesSampleRate: 0.5,
-});
+// sentry.init({
+//   dsn: "https://598d6ddbb7a14dd988bb2f1cbecdac2a@sentry.jagu.cz/29",
+//   tracesSampleRate: 0.5,
+// });
 
 // queue for ConfigSyncJobs (CSJs) or TimeEntriesSyncJobs (TESJs)
 const jobQueue = new Queue<SyncJob>();
@@ -35,10 +34,10 @@ cron.schedule('*/5 * * * * *', () => {
   while (!jobQueue.isEmpty()) {
     const job = jobQueue.dequeue();
 
-    const sentryTransaction = sentry.startTransaction({
-      op: 'job',
-      name: 'Job transaction',
-    });
+    // const sentryTransaction = sentry.startTransaction({
+    //   op: 'job',
+    //   name: 'Job transaction',
+    // });
 
     if (job) {
       console.log(' -> Do the job');
@@ -53,14 +52,14 @@ cron.schedule('*/5 * * * * *', () => {
             // do not want to be in the cycle => return to queue only twice or something...
             // console.log(' -> Added job again');
             // jobQueue.enqueue(job);
-            sentry.captureMessage('Job unsuccessful');
+            // sentry.captureMessage('Job unsuccessful');
           }
         });
       } catch (ex) {
-        sentry.captureException(ex);
+        // sentry.captureException(ex);
         // do not want to terminate whole app if something not ok
       } finally {
-        sentryTransaction.finish();
+        // sentryTransaction.finish();
       }
     }
   }
