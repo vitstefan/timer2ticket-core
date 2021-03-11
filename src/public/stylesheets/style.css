@@ -1,0 +1,17 @@
+:root {
+  --background-color-2: #FFFFFF;
+  --background-color-1: #DFEFFF;
+  --text-color: #383838;
+  --disabled-color: #cccccc;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: Montserrat, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: var(--text-color);
+}
