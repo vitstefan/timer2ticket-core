@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { Queue } from 'typescript-collections';
 import cron from 'node-cron';
 // import sentry from '@sentry/node';
@@ -79,7 +79,7 @@ app.listen(Constants.appPort, async () => {
 });
 
 // Schedule jobs for given user
-app.post('/api/start/:userId([a-zA-Z0-9]{24})', async (req, res) => {
+app.post('/api/start/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Response) => {
   const userId = req.params.userId;
   // config probably changed 
   // => stop all scheduled cron tasks 
@@ -113,7 +113,7 @@ app.post('/api/start/:userId([a-zA-Z0-9]{24})', async (req, res) => {
 });
 
 // Stop all jobs for given user
-app.post('/api/stop/:userId([a-zA-Z0-9]{24})', async (req, res) => {
+app.post('/api/stop/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Response) => {
   const userId = req.params.userId;
   // config probably changed 
   // => stop all scheduled cron tasks
@@ -138,7 +138,7 @@ app.post('/api/stop/:userId([a-zA-Z0-9]{24})', async (req, res) => {
 });
 
 // Returns 204 if both config and TE jobs are scheduled for given user
-app.post('/api/scheduled/:userId([a-zA-Z0-9]{24})', async (req, res) => {
+app.post('/api/scheduled/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Response) => {
   const userId = req.params.userId;
 
   const configTask = activeUsersScheduledConfigSyncTasks.get(userId);
