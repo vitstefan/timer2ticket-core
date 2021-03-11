@@ -2,7 +2,7 @@ name: Create and Publish package
 on:
   push:
     tags:
-      - release
+      - v*
 jobs:
   run-npm-build:
     runs-on: ubuntu-latest
