@@ -6,8 +6,9 @@ WORKDIR /app
 COPY ["package.json", "package-lock.json*", "tsconfig.json", "./"]
 
 RUN npm install --production
-RUN npm run build
 
 COPY . .
+
+RUN npm run build
 
 CMD [ "node", "./dist/app.js" ]
