@@ -1,14 +1,12 @@
-FROM node:14
+FROM node:14-alpine
+
 ENV NODE_ENV=production
 
+USER node
+
+COPY --chown=node:node . /app/
 WORKDIR /app
 
-COPY ["package.json", "package-lock.json*", "tsconfig.json", "./"]
-
-RUN npm install --production
-
-COPY . .
-
-RUN npm run build
+RUN npm install --production && npm run build
 
 CMD [ "node", "./dist/app.js" ]
