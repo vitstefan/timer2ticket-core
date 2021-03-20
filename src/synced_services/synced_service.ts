@@ -19,9 +19,20 @@ export interface SyncedService {
   getServiceObject(id: string | number, objectType: string): Promise<ServiceObject | undefined>;
 
   /**
+   * Get one service object -> based on type & name
+   * If type was not specified, service would need to ask for all its serviceObject and then filter by id
+   * 
+   * @param objectId id of serviceObject in the primary service => generating name
+   * @param objectName name of serviceObject
+   * @param type type of wanted serviceObject
+   */
+  getServiceObjectByName(objectId: string | number, objectName: string, objectType: string): Promise<ServiceObject | undefined>;
+
+  /**
    * Create service object like project, issue, tag and activity in the service, and return newly created one
    * 
-   * Typically created with name '[objectName] ([objectType])'
+   * Typically created with name '[objectName] ([objectType])' or '#[objectId] [objectName] ([objectType])'
+   * @param objectId id of serviceObject in the primary service => needed to generate name with that id
    * @param objectName name of serviceObject
    * @param objectType type of serviceObject, ('tag', ...)
    */

@@ -71,8 +71,6 @@ export class ConfigSyncJob extends SyncJob {
         // can be undefined from scenario a)
         checkedMappings.push(mapping);
       } catch (ex) {
-        // TODO catch specific exception
-        // console.log(ex);
         operationsOk = false;
       }
     }
@@ -132,8 +130,23 @@ export class ConfigSyncJob extends SyncJob {
         mappingsObject = new MappingsObject(objectToSync.id, objectToSync.name, serviceDefinition.name, objectToSync.type);
       } else {
         // firstly create object in the service, then create serviceObject with newly acquired id
-        const createdObject = await syncedService.createServiceObject(objectToSync.id, objectToSync.name, objectToSync.type);
-        console.log(`ConfigSyncJob: Created object ${createdObject.name}`);
+        let createdObject;
+        try {
+          createdObject = await syncedService.createServiceObject(objectToSync.id, objectToSync.name, objectToSync.type);
+          console.log(`ConfigSyncJob: Created object ${createdObject.name}`);
+        } catch (ex) {
+          if (ex.status !== 400) {
+            throw ex;
+          }
+          // 400 ~ maybe object already exists and cannot be created (for example object needs to be unique - name)?
+          // => try to find it and use it for the mapping
+          createdObject = await syncedService.getServiceObjectByName(objectToSync.id, objectToSync.name, objectToSync.type);
+          if (!createdObject) {
+            // not found, rethrow exception
+            throw ex;
+          }
+          console.log(`ConfigSyncJob: Creating mapping, but object exists, using real object ${createdObject.name}`);
+        }
         mappingsObject = new MappingsObject(createdObject.id, createdObject.name, serviceDefinition.name, createdObject.type);
       }
 

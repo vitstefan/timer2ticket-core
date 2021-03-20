@@ -1,12 +1,13 @@
 import { ServiceDefinition } from "../../models/service_definition/service_definition";
 import { TimeEntry } from "../../models/synced_service/time_entry/time_entry";
 import { SyncedService } from "../synced_service";
-import superagent from "superagent";
+import superagent, { SuperAgentRequest } from "superagent";
 import { ServiceObject } from "../../models/synced_service/service_object/service_object";
 import { RedmineTimeEntry } from "../../models/synced_service/time_entry/redmine_time_entry";
 import { Utilities } from "../../shared/utilities";
 import { MappingsObject } from "../../models/mapping/mappings_object";
 import { Mapping } from "../../models/mapping/mapping";
+import { Constants } from "../../shared/constants";
 
 export class RedmineSyncedService implements SyncedService {
   private _serviceDefinition: ServiceDefinition;
@@ -37,6 +38,44 @@ export class RedmineSyncedService implements SyncedService {
     this._timeEntryActivitiesType = 'activity';
   }
 
+  /**
+   * Can be awaited for @milliseconds
+   * @param milliseconds milliseconds to wait
+   * @returns promise to be awaited
+   */
+  private async _wait(milliseconds = Constants.defaultWaitDurationInCaseOfTooManyRequestsInMilliseconds): Promise<unknown> {
+    return new Promise(res => setTimeout(res, milliseconds));
+  }
+
+  /**
+   * Method to wrap superagent request in case of wanting to retry request.
+   * Plus waiting if responded with 429 Too many requests.
+   * (Seems like Redmine does not respond with 429, but handled just in case.)
+   * @param request 
+   * @returns 
+   */
+  private async _retryAndWaitInCaseOfTooManyRequests(request: SuperAgentRequest): Promise<superagent.Response> {
+    let needToWait = false;
+
+    // call request but with chained retry
+    const response = await request
+      .retry(2, (err, res) => {
+        if (res.status === 429) {
+          // cannot wait here, since it cannot be async method (well it can, but it does not wait)
+          needToWait = true;
+        }
+      });
+
+
+    if (needToWait) {
+      // wait, because Redmine is responding with 429
+      // (Seems like Redmine does not respond with 429, but handled just in case.)
+      await this._wait();
+    }
+
+    return response;
+  }
+
   async getAllServiceObjects(): Promise<ServiceObject[]> {
     const projects = await this._getAllProjects();
     const additionalServiceObjects = await this._getAllAdditionalServiceObjects();
@@ -49,6 +88,17 @@ export class RedmineSyncedService implements SyncedService {
         return (await this._getAllProjects()).find(project => project.id === id);
       default:
         return (await this._getAllAdditionalServiceObjects()).find(serviceObject => serviceObject.id === id);
+    }
+  }
+
+  async getServiceObjectByName(objectId: string | number, objectName: string, objectType: string): Promise<ServiceObject | undefined> {
+    const realName = this.getFullNameForServiceObject(new ServiceObject(objectId, objectName, objectType));
+
+    switch (objectType) {
+      case this._projectsType:
+        return (await this._getAllProjects()).find(project => project.name === realName);
+      default:
+        return (await this._getAllAdditionalServiceObjects()).find(serviceObject => serviceObject.name === realName);
     }
   }
 
@@ -75,17 +125,18 @@ export class RedmineSyncedService implements SyncedService {
   // PROJECTS **************************************************
   // ***********************************************************
 
-
   private async _getAllProjects(): Promise<ServiceObject[]> {
-    const response = await superagent
-      .get(this._projectsUri)
-      .accept('application/json')
-      .type('application/json')
-      .set('X-Redmine-API-Key', this._serviceDefinition.apiKey);
+    const response = await this._retryAndWaitInCaseOfTooManyRequests(
+      superagent
+        .get(this._projectsUri)
+        .accept('application/json')
+        .type('application/json')
+        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+    );
 
     const projects: ServiceObject[] = [];
 
-    response.body.projects.forEach((project: never) => {
+    response.body?.projects.forEach((project: never) => {
       projects.push(
         new ServiceObject(
           project['id'],
@@ -120,15 +171,17 @@ export class RedmineSyncedService implements SyncedService {
    * Return Issues and Activities both in array of service objects
    */
   private async _getAllAdditionalServiceObjects(): Promise<ServiceObject[]> {
-    const responseIssues = await superagent
-      .get(this._issuesUri)
-      .accept('application/json')
-      .type('application/json')
-      .set('X-Redmine-API-Key', this._serviceDefinition.apiKey);
+    const responseIssues = await this._retryAndWaitInCaseOfTooManyRequests(
+      superagent
+        .get(this._issuesUri)
+        .accept('application/json')
+        .type('application/json')
+        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+    );
 
     const issues: ServiceObject[] = [];
 
-    responseIssues.body['issues'].forEach((issue: never) => {
+    responseIssues.body?.issues.forEach((issue: never) => {
       issues.push(
         new ServiceObject(
           issue['id'],
@@ -137,15 +190,17 @@ export class RedmineSyncedService implements SyncedService {
         ));
     });
 
-    const responseTimeEntryActivities = await superagent
-      .get(this._timeEntryActivitiesUri)
-      .accept('application/json')
-      .type('application/json')
-      .set('X-Redmine-API-Key', this._serviceDefinition.apiKey);
+    const responseTimeEntryActivities = await this._retryAndWaitInCaseOfTooManyRequests(
+      superagent
+        .get(this._timeEntryActivitiesUri)
+        .accept('application/json')
+        .type('application/json')
+        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+    );
 
     const timeEntryActivities: ServiceObject[] = [];
 
-    responseTimeEntryActivities.body['time_entry_activities'].forEach((timeEntryActivity: never) => {
+    responseTimeEntryActivities.body?.time_entry_activities.forEach((timeEntryActivity: never) => {
       timeEntryActivities.push(
         new ServiceObject(
           timeEntryActivity['id'],
@@ -183,15 +238,18 @@ export class RedmineSyncedService implements SyncedService {
       queryParams = {
         from: Utilities.getOnlyDateString(start),
         to: Utilities.getOnlyDateString(end),
+        user_id: this._serviceDefinition.config.userId,
       }
     }
 
-    const response = await superagent
-      .get(this._timeEntriesUri)
-      .accept('application/json')
-      .type('application/json')
-      .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
-      .query(queryParams);
+    const response = await this._retryAndWaitInCaseOfTooManyRequests(
+      superagent
+        .get(this._timeEntriesUri)
+        .accept('application/json')
+        .type('application/json')
+        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+        .query(queryParams)
+    );
 
     const entries: RedmineTimeEntry[] = [];
 
@@ -255,12 +313,14 @@ export class RedmineSyncedService implements SyncedService {
       timeEntryBody['issue_id'] = issueId;
     }
 
-    const response = await superagent
-      .post(this._timeEntriesUri)
-      .accept('application/json')
-      .type('application/json')
-      .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
-      .send({ time_entry: timeEntryBody });
+    const response = await this._retryAndWaitInCaseOfTooManyRequests(
+      superagent
+        .post(this._timeEntriesUri)
+        .accept('application/json')
+        .type('application/json')
+        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+        .send({ time_entry: timeEntryBody })
+    );
 
     if (!response.ok) {
       return null;
@@ -284,11 +344,13 @@ export class RedmineSyncedService implements SyncedService {
   }
 
   async deleteTimeEntry(id: string | number): Promise<boolean> {
-    const response = await superagent
-      .delete(`${this._timeEntriesUri.substring(0, this._timeEntriesUri.length - 5)}/${id}.json`)
-      .accept('application/json')
-      .type('application/json')
-      .set('X-Redmine-API-Key', this._serviceDefinition.apiKey);
+    const response = await this._retryAndWaitInCaseOfTooManyRequests(
+      superagent
+        .delete(`${this._timeEntriesUri.substring(0, this._timeEntriesUri.length - 5)}/${id}.json`)
+        .accept('application/json')
+        .type('application/json')
+        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+    );
 
     return response.ok;
   }

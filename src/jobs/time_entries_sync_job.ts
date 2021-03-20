@@ -8,6 +8,7 @@ import { ServiceTimeEntryObject } from "../models/synced_service/time_entry_sync
 import { SyncedService } from "../synced_services/synced_service";
 import { ServiceObject } from "../models/synced_service/service_object/service_object";
 import { MappingsObject } from "../models/mapping/mappings_object";
+import { Utilities } from "../shared/utilities";
 
 export class TimeEntriesSyncJob extends SyncJob {
   /**
@@ -16,21 +17,21 @@ export class TimeEntriesSyncJob extends SyncJob {
    */
   async doTheJob(): Promise<boolean> {
     let now = new Date();
-    // const twoWeeksAgo = new Date(now.setDate(now.getDate() - 14));
+    const someDaysAgo = new Date(now.setDate(now.getDate() - 35));
     now = new Date();
 
     // TODO - now it takes all TEs from the point where user registrated
     // should care about the most later ones (or not? - discussion needed)
     // problem: Toggl does not support asking for TEs with lastUpdated filter
     // possible solution: get all and filter them here, but it would be kind of costly
-    // it is somewhat better and easier for now just taking all TEs
+    // it is somewhat better and easier for now just taking all (35 days old) TEs
     // beware of Toggl limit 1000 TEs for one request
 
-    // uncomment to take only 14 days old TEs
-    // const start = Utilities.compare(this._user.registrated, twoWeeksAgo) > 0
-    //   ? this._user.registrated
-    //   : twoWeeksAgo;
-    const start = this._user.registrated;
+    // uncomment to take only 35 days old TEs
+    const start = Utilities.compare(this._user.registrated, someDaysAgo) > 0
+      ? this._user.registrated
+      : someDaysAgo;
+    // const start = this._user.registrated;
     // start of the day
     start.setHours(0);
     start.setMinutes(0);
@@ -74,9 +75,12 @@ export class TimeEntriesSyncJob extends SyncJob {
     const timeEntrySyncedObjectWrappers: TimeEntrySyncedObjectWrapper[] = [];
 
     // get all TESOs from DB for user
-    const timeEntrySyncedObjects = await databaseService.getTimeEntrySyncedObjects(this._user);
+    let timeEntrySyncedObjects = await databaseService.getTimeEntrySyncedObjects(this._user);
 
     if (!timeEntrySyncedObjects) return false;
+
+    // filter out old tesos, timeEntries are loaded only from start to now, so if not filtered,  
+    timeEntrySyncedObjects = timeEntrySyncedObjects.filter(teso => teso.lastUpdated >= start.getTime())
 
     for (const timeEntrySyncedObject of timeEntrySyncedObjects) {
       const timeEntrySyncedObjectWrapper = new TimeEntrySyncedObjectWrapper(timeEntrySyncedObject);
@@ -233,7 +237,6 @@ export class TimeEntriesSyncJob extends SyncJob {
 
       // this kind of makes no sense, but it needs to be here for unexpected weird events (and for linter)
       if (!lastUpdatedServiceTimeEntryObjectWrapper.timeEntry) return false;
-
 
       const otherServicesMappingsObjects = lastUpdatedServiceTimeEntryObjectWrapper.syncedService
         .extractMappingsObjectsFromTimeEntry(lastUpdatedServiceTimeEntryObjectWrapper.timeEntry, this._user.mappings);

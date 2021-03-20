@@ -1,7 +1,7 @@
+import * as Sentry from '@sentry/node';
 import express, { Request, Response } from 'express';
 import { Queue } from 'typescript-collections';
 import cron from 'node-cron';
-// import sentry from '@sentry/node';
 import bodyParser from 'body-parser';
 import { ConfigSyncJob } from './jobs/config_sync_job';
 import { SyncJob } from './jobs/sync_job';
@@ -10,14 +10,14 @@ import { Constants } from './shared/constants';
 import { databaseService } from './shared/database_service';
 import { User } from './models/user';
 
+Sentry.init({
+  dsn: Constants.sentryDsn,
+  tracesSampleRate: 0.5,
+});
+
 const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-
-// sentry.init({
-//   dsn: "https://598d6ddbb7a14dd988bb2f1cbecdac2a@sentry.jagu.cz/29",
-//   tracesSampleRate: 0.5,
-// });
 
 // queue for ConfigSyncJobs (CSJs) or TimeEntriesSyncJobs (TESJs)
 const jobQueue = new Queue<SyncJob>();
@@ -29,15 +29,15 @@ const activeUsersScheduledTimeEntriesSyncTasks = new Map<string, cron.ScheduledT
 
 // TODO cleanUpJob - removes old projects, issues etc.
 
-// every 5 seconds check if jobQueue is not empty
-cron.schedule('*/5 * * * * *', () => {
+// every 10 seconds check if jobQueue is not empty
+cron.schedule('*/10 * * * * *', () => {
   while (!jobQueue.isEmpty()) {
     const job = jobQueue.dequeue();
 
-    // const sentryTransaction = sentry.startTransaction({
-    //   op: 'job',
-    //   name: 'Job transaction',
-    // });
+    const sentryTransaction = Sentry.startTransaction({
+      op: 'job',
+      name: 'Job transaction',
+    });
 
     if (job) {
       console.log(' -> Do the job');
@@ -52,14 +52,14 @@ cron.schedule('*/5 * * * * *', () => {
             // do not want to be in the cycle => return to queue only twice or something...
             // console.log(' -> Added job again');
             // jobQueue.enqueue(job);
-            // sentry.captureMessage('Job unsuccessful');
+            Sentry.captureMessage(`Job unsuccessful for user: ${job.userId}`);
           }
         });
       } catch (ex) {
-        // sentry.captureException(ex);
+        Sentry.captureException(ex);
         // do not want to terminate whole app if something not ok
       } finally {
-        // sentryTransaction.finish();
+        sentryTransaction.finish();
       }
     }
   }
@@ -166,6 +166,7 @@ function scheduleJobs(user: User) {
 
   if (cron.validate(user.timeEntrySyncJobDefinition.schedule)) {
     const task = cron.schedule(user.timeEntrySyncJobDefinition.schedule, async () => {
+      // grab fresh user from the db to see his lastSuccessfullyDone
       const actualUser = await databaseService.getUserById(user._id.toString());
       // check if not null => there was at least 1 successful config job done => basic mappings should be there
       if (actualUser?.configSyncJobDefinition.lastSuccessfullyDone) {
