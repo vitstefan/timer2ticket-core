@@ -157,9 +157,13 @@ function scheduleJobs(user: User) {
 
   // cron schedule validation can be omitted (schedule is already validated when user - and schedule too - is updated)
   if (cron.validate(user.configSyncJobDefinition.schedule)) {
-    const task = cron.schedule(user.configSyncJobDefinition.schedule, () => {
-      console.log(' -> Added ConfigSyncJob');
-      jobQueue.enqueue(new ConfigSyncJob(user));
+    const task = cron.schedule(user.configSyncJobDefinition.schedule, async () => {
+      // grab fresh user with all updated values
+      const actualUser = await databaseService.getUserById(user._id.toString());
+      if (actualUser) {
+        console.log(' -> Added ConfigSyncJob');
+        jobQueue.enqueue(new ConfigSyncJob(actualUser));
+      }
     });
     activeUsersScheduledConfigSyncTasks.set(user._id.toString(), task);
   }

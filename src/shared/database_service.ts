@@ -87,6 +87,27 @@ export class DatabaseService {
     return result.result.ok === 1 ? result.ops[0] : null;
   }
 
+  async _updateUserPartly(user: User, updateQuery: Record<string, unknown>): Promise<boolean> {
+    if (!this._usersCollection) return false;
+
+    const filterQuery = { _id: new ObjectId(user._id) };
+
+    const result = await this._usersCollection.updateOne(filterQuery, updateQuery);
+    return result.result.ok === 1;
+  }
+
+  async updateUserMappings(user: User): Promise<boolean> {
+    return this._updateUserPartly(user, { $set: { mappings: user.mappings } });
+  }
+
+  async updateUserConfigSyncJobLastSuccessfullyDone(user: User): Promise<boolean> {
+    return this._updateUserPartly(user, { $set: { "configSyncJobDefinition.lastSuccessfullyDone": user.configSyncJobDefinition.lastSuccessfullyDone } });
+  }
+
+  async updateUserTimeEntrySyncJobLastSuccessfullyDone(user: User): Promise<boolean> {
+    return this._updateUserPartly(user, { $set: { "timeEntrySyncJobDefinition.lastSuccessfullyDone": user.timeEntrySyncJobDefinition.lastSuccessfullyDone } });
+  }
+
   // ***********************************************************
   // TIME ENTRY SYNCED OBJECTS *********************************
   // ***********************************************************

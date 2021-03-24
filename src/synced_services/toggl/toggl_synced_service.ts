@@ -22,6 +22,8 @@ export class TogglTrackSyncedService implements SyncedService {
   private _projectsType: string;
   private _tagsType: string;
 
+  private _responseLimit: number;
+
   constructor(serviceDefinition: ServiceDefinition) {
     this._serviceDefinition = serviceDefinition;
 
@@ -35,6 +37,9 @@ export class TogglTrackSyncedService implements SyncedService {
 
     this._projectsType = 'project';
     this._tagsType = 'tag';
+
+    // defined by Toggl, cannot override
+    this._responseLimit = 50;
   }
 
   /**
@@ -274,35 +279,49 @@ export class TogglTrackSyncedService implements SyncedService {
   // TIME ENTRIES **********************************************
   // ***********************************************************
 
-  async getTimeEntries(start?: Date, end?: Date): Promise<TimeEntry[]> {
-    const queryParams = {
-      start_date: start?.toISOString(),
-      end_date: end?.toISOString(),
-    };
+  async getTimeEntries(start?: Date): Promise<TimeEntry[]> {
+    let anotherRequest = true;
 
-    const response = await this._retryAndWaitInCaseOfTooManyRequests(
-      superagent
-        .get(this._timeEntriesUri)
-        .query(queryParams)
-        .auth(this._serviceDefinition.apiKey, 'api_token')
-    );
+    const queryParams = {
+      since: start?.toISOString(),
+      workspace_id: this._serviceDefinition.config.workspaceId,
+      user_agent: 'Timer2Ticket',
+      page: 1,
+    };
 
     const entries: TogglTimeEntry[] = [];
 
-    response.body.forEach((timeEntry: never) => {
-      entries.push(
-        new TogglTimeEntry(
-          timeEntry['id'],
-          timeEntry['pid'],
-          timeEntry['description'],
-          new Date(timeEntry['start']),
-          new Date(timeEntry['stop']),
-          timeEntry['duration'] * 1000,
-          timeEntry['tags'],
-          new Date(timeEntry['at']),
-        ),
+    // time entries via reports (paginate)
+    do {
+      const response = await this._retryAndWaitInCaseOfTooManyRequests(
+        superagent
+          .get(this._reportsUri)
+          .query(queryParams)
+          .auth(this._serviceDefinition.apiKey, 'api_token')
       );
-    });
+
+      response.body?.data.forEach((timeEntry: never) => {
+        entries.push(
+          new TogglTimeEntry(
+            timeEntry['id'],
+            timeEntry['pid'],
+            timeEntry['description'],
+            new Date(timeEntry['start']),
+            new Date(timeEntry['end']),
+            timeEntry['dur'],
+            timeEntry['tags'],
+            new Date(timeEntry['updated']),
+          ),
+        );
+      });
+
+      if (queryParams.page * this._responseLimit >= response.body?.total_count) {
+        anotherRequest = false;
+      }
+
+      queryParams.page++;
+
+    } while (anotherRequest);
 
     return entries;
   }

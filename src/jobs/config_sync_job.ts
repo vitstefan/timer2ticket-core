@@ -101,10 +101,12 @@ export class ConfigSyncJob extends SyncJob {
     if (operationsOk) {
       // if all operations OK => set lastSuccessfullyDone (important to set not null for starting TE syncing)
       this._user.configSyncJobDefinition.lastSuccessfullyDone = new Date().getTime();
+      await databaseService.updateUserConfigSyncJobLastSuccessfullyDone(this._user);
     }
+
     // persist changes in the mappings
     // even if some api operations were not ok, persist changes to the mappings - better than nothing
-    await databaseService.updateUser(this._user);
+    await databaseService.updateUserMappings(this._user);
 
     return operationsOk;
   }

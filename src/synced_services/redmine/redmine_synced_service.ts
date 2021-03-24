@@ -21,6 +21,8 @@ export class RedmineSyncedService implements SyncedService {
   private _issuesType: string;
   private _timeEntryActivitiesType: string;
 
+  private _responseLimit: number;
+
   constructor(serviceDefinition: ServiceDefinition) {
     if (serviceDefinition.config.apiPoint === null) {
       throw 'Redmine ServiceDefinition apiPoint has to be defined.';
@@ -36,6 +38,8 @@ export class RedmineSyncedService implements SyncedService {
     this._projectsType = 'project';
     this._issuesType = 'issue';
     this._timeEntryActivitiesType = 'activity';
+
+    this._responseLimit = 50;
   }
 
   /**
@@ -126,24 +130,40 @@ export class RedmineSyncedService implements SyncedService {
   // ***********************************************************
 
   private async _getAllProjects(): Promise<ServiceObject[]> {
-    const response = await this._retryAndWaitInCaseOfTooManyRequests(
-      superagent
-        .get(this._projectsUri)
-        .accept('application/json')
-        .type('application/json')
-        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
-    );
+    let anotherRequest = true;
+
+    const queryParams = {
+      limit: this._responseLimit,
+      offset: 0,
+    };
 
     const projects: ServiceObject[] = [];
 
-    response.body?.projects.forEach((project: never) => {
-      projects.push(
-        new ServiceObject(
-          project['id'],
-          project['name'],
-          this._projectsType,
-        ));
-    });
+    do {
+      const response = await this._retryAndWaitInCaseOfTooManyRequests(
+        superagent
+          .get(this._projectsUri)
+          .query(queryParams)
+          .accept('application/json')
+          .type('application/json')
+          .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+      );
+
+      response.body?.projects.forEach((project: never) => {
+        projects.push(
+          new ServiceObject(
+            project['id'],
+            project['name'],
+            this._projectsType,
+          ));
+      });
+
+      queryParams.offset += queryParams.limit;
+
+      if (queryParams.offset >= response.body?.total_count) {
+        anotherRequest = false;
+      }
+    } while (anotherRequest);
 
     return projects;
   }
@@ -171,25 +191,45 @@ export class RedmineSyncedService implements SyncedService {
    * Return Issues and Activities both in array of service objects
    */
   private async _getAllAdditionalServiceObjects(): Promise<ServiceObject[]> {
-    const responseIssues = await this._retryAndWaitInCaseOfTooManyRequests(
-      superagent
-        .get(this._issuesUri)
-        .accept('application/json')
-        .type('application/json')
-        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
-    );
+    let anotherRequest = true;
+
+    const queryParams = {
+      limit: this._responseLimit,
+      offset: 0,
+    };
 
     const issues: ServiceObject[] = [];
 
-    responseIssues.body?.issues.forEach((issue: never) => {
-      issues.push(
-        new ServiceObject(
-          issue['id'],
-          issue['subject'],
-          this._issuesType,
-        ));
-    });
+    // issues (paginate)
+    do {
+      const responseIssues = await this._retryAndWaitInCaseOfTooManyRequests(
+        superagent
+          .get(this._issuesUri)
+          .query(queryParams)
+          .accept('application/json')
+          .type('application/json')
+          .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
+      );
 
+      responseIssues.body?.issues.forEach((issue: never) => {
+        issues.push(
+          new ServiceObject(
+            issue['id'],
+            issue['subject'],
+            this._issuesType,
+          ));
+      });
+
+      queryParams.offset += queryParams.limit;
+
+      if (queryParams.offset >= responseIssues.body?.total_count) {
+        anotherRequest = false;
+      }
+    } while (anotherRequest);
+
+    const timeEntryActivities: ServiceObject[] = [];
+
+    // time entry activities (do not paginate)
     const responseTimeEntryActivities = await this._retryAndWaitInCaseOfTooManyRequests(
       superagent
         .get(this._timeEntryActivitiesUri)
@@ -197,8 +237,6 @@ export class RedmineSyncedService implements SyncedService {
         .type('application/json')
         .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
     );
-
-    const timeEntryActivities: ServiceObject[] = [];
 
     responseTimeEntryActivities.body?.time_entry_activities.forEach((timeEntryActivity: never) => {
       timeEntryActivities.push(
@@ -233,45 +271,60 @@ export class RedmineSyncedService implements SyncedService {
   // ***********************************************************
 
   async getTimeEntries(start?: Date, end?: Date): Promise<TimeEntry[]> {
-    let queryParams = {};
-    if (start && end) {
-      queryParams = {
-        from: Utilities.getOnlyDateString(start),
-        to: Utilities.getOnlyDateString(end),
-        user_id: this._serviceDefinition.config.userId,
-      }
-    }
+    let anotherRequest = true;
 
-    const response = await this._retryAndWaitInCaseOfTooManyRequests(
-      superagent
-        .get(this._timeEntriesUri)
-        .accept('application/json')
-        .type('application/json')
-        .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
-        .query(queryParams)
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const queryParams: Record<string, any> = {
+      limit: this._responseLimit,
+      offset: 0,
+      user_id: this._serviceDefinition.config.userId,
+      from: start ? Utilities.getOnlyDateString(start) : null,
+      to: end ? Utilities.getOnlyDateString(end) : null,
+    };
+
+    if (start && end) {
+      queryParams.from = Utilities.getOnlyDateString(start);
+      queryParams.to = Utilities.getOnlyDateString(end);
+    }
 
     const entries: RedmineTimeEntry[] = [];
 
-    response.body['time_entries'].forEach((timeEntry: never) => {
-      const durationInMilliseconds = timeEntry['hours'] * 60 * 60 * 1000;
-      const start = new Date(timeEntry['spent_on']);
-      const end = new Date(new Date(timeEntry['spent_on']).setMilliseconds(durationInMilliseconds));
-
-      entries.push(
-        new RedmineTimeEntry(
-          timeEntry['id'],
-          timeEntry['project']['id'],
-          timeEntry['comments'],
-          start,
-          end,
-          durationInMilliseconds,
-          timeEntry['issue'] ? timeEntry['issue']['id'] : undefined,
-          timeEntry['activity']['id'],
-          new Date(timeEntry['updated_on']),
-        ),
+    do {
+      const response = await this._retryAndWaitInCaseOfTooManyRequests(
+        superagent
+          .get(this._timeEntriesUri)
+          .query(queryParams)
+          .accept('application/json')
+          .type('application/json')
+          .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
       );
-    });
+
+      response.body['time_entries'].forEach((timeEntry: never) => {
+        const durationInMilliseconds = timeEntry['hours'] * 60 * 60 * 1000;
+        const start = new Date(timeEntry['spent_on']);
+        const end = new Date(new Date(timeEntry['spent_on']).setMilliseconds(durationInMilliseconds));
+
+        entries.push(
+          new RedmineTimeEntry(
+            timeEntry['id'],
+            timeEntry['project']['id'],
+            timeEntry['comments'],
+            start,
+            end,
+            durationInMilliseconds,
+            timeEntry['issue'] ? timeEntry['issue']['id'] : undefined,
+            timeEntry['activity']['id'],
+            new Date(timeEntry['updated_on']),
+          ),
+        );
+      });
+
+      queryParams.offset += queryParams.limit;
+
+      if (queryParams.offset >= response.body?.total_count) {
+        anotherRequest = false;
+      }
+    } while (anotherRequest);
 
     return entries;
   }

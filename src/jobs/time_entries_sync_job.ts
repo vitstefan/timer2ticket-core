@@ -8,7 +8,6 @@ import { ServiceTimeEntryObject } from "../models/synced_service/time_entry_sync
 import { SyncedService } from "../synced_services/synced_service";
 import { ServiceObject } from "../models/synced_service/service_object/service_object";
 import { MappingsObject } from "../models/mapping/mappings_object";
-import { Utilities } from "../shared/utilities";
 
 export class TimeEntriesSyncJob extends SyncJob {
   /**
@@ -17,7 +16,7 @@ export class TimeEntriesSyncJob extends SyncJob {
    */
   async doTheJob(): Promise<boolean> {
     let now = new Date();
-    const someDaysAgo = new Date(now.setDate(now.getDate() - 35));
+    // const someDaysAgo = new Date(now.setDate(now.getDate() - 35));
     now = new Date();
 
     // TODO - now it takes all TEs from the point where user registrated
@@ -25,13 +24,13 @@ export class TimeEntriesSyncJob extends SyncJob {
     // problem: Toggl does not support asking for TEs with lastUpdated filter
     // possible solution: get all and filter them here, but it would be kind of costly
     // it is somewhat better and easier for now just taking all (35 days old) TEs
-    // beware of Toggl limit 1000 TEs for one request
+    // beware of Toggl limit 1000 TEs for one request (now using reports api, so this should not be problem - paginating)
 
     // uncomment to take only 35 days old TEs
-    const start = Utilities.compare(this._user.registrated, someDaysAgo) > 0
-      ? this._user.registrated
-      : someDaysAgo;
-    // const start = this._user.registrated;
+    // const start = Utilities.compare(this._user.registrated, someDaysAgo) > 0
+    //   ? this._user.registrated
+    //   : someDaysAgo;
+    const start = this._user.registrated;
     // start of the day
     start.setHours(0);
     start.setMinutes(0);
@@ -155,7 +154,7 @@ export class TimeEntriesSyncJob extends SyncJob {
 
     if (operationsOk) {
       this._user.timeEntrySyncJobDefinition.lastSuccessfullyDone = new Date().getTime();
-      databaseService.updateUser(this._user);
+      databaseService.updateUserTimeEntrySyncJobLastSuccessfullyDone(this._user);
     }
 
     return operationsOk;
