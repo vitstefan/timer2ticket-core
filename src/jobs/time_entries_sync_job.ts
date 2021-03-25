@@ -126,13 +126,17 @@ export class TimeEntriesSyncJob extends SyncJob {
             .filter(stew => stew.serviceDefinition.name !== serviceTimeEntriesWrapper.serviceDefinition.name);
 
           console.log('TESyncJob: a)');
-          const newTimeEntrySyncedObject = await this._createTimeEntrySyncedObject(serviceTimeEntriesWrapper, otherServiceTimeEntriesWrappers, timeEntry);
-          // if defined and not null => create TESO
-          if (newTimeEntrySyncedObject) {
-            // no need to await DB changes
-            databaseService.createTimeEntrySyncedObject(newTimeEntrySyncedObject);
-          } else if (newTimeEntrySyncedObject === undefined) {
-            // if undefined => error
+          try {
+            const newTimeEntrySyncedObject = await this._createTimeEntrySyncedObject(serviceTimeEntriesWrapper, otherServiceTimeEntriesWrappers, timeEntry);
+            // if defined and not null => create TESO
+            if (newTimeEntrySyncedObject) {
+              // no need to await DB changes
+              databaseService.createTimeEntrySyncedObject(newTimeEntrySyncedObject);
+            } else if (newTimeEntrySyncedObject === undefined) {
+              // if undefined => error
+              operationsOk = false;
+            }
+          } catch (ex) {
             operationsOk = false;
           }
           // if null, TE is not meant to be synced

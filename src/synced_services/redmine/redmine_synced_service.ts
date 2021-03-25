@@ -349,6 +349,13 @@ export class RedmineSyncedService implements SyncedService {
       return null;
     }
 
+    // when user chooses both issue and project, ignore project, issue only is required
+    // it solves also problem when user (accidentally) chooses issue and project, but issue is not assigned to chosen project
+    // if provided with both (and wrong ones), RM will respond with 422
+    if (issueId && projectId) {
+      projectId = null;
+    }
+
     const hours = durationInMilliseconds / 1000 / 60 / 60;
     const timeEntryBody: Record<string, unknown> = {
       // minimum value in Redmine is 0.01, so if it is empty, insert exact 0.0, something between => 0.01, else > 0.01
@@ -359,11 +366,11 @@ export class RedmineSyncedService implements SyncedService {
       // if activityId not specified => fill with default from config
       activity_id: activityId ? activityId : this._serviceDefinition.config.defaultTimeEntryActivityId,
     };
-    if (projectId) {
-      timeEntryBody['project_id'] = projectId;
-    }
+  
     if (issueId) {
       timeEntryBody['issue_id'] = issueId;
+    } else if (projectId) {
+      timeEntryBody['project_id'] = projectId;
     }
 
     const response = await this._retryAndWaitInCaseOfTooManyRequests(
@@ -375,7 +382,7 @@ export class RedmineSyncedService implements SyncedService {
         .send({ time_entry: timeEntryBody })
     );
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       return null;
     }
 
