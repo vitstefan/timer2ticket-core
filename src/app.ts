@@ -78,6 +78,36 @@ app.listen(Constants.appPort, async () => {
   return console.log(`Server is listening on ${Constants.appPort}`);
 });
 
+// Schedule config sync job immediately
+app.post('/api/schedule_config_job/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Response) => {
+  const userId = req.params.userId;
+  const user = await databaseService.getUserById(userId);
+
+  if (!user) {
+    return res.sendStatus(404);
+  }
+
+  // schedule CSJ right now
+  jobQueue.enqueue(new ConfigSyncJob(user));
+
+  return res.send('User\'s config sync job scheduled successfully.');
+});
+
+// Schedule time entry sync job immediately
+app.post('/api/schedule_time_entries_job/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Response) => {
+  const userId = req.params.userId;
+  const user = await databaseService.getUserById(userId);
+
+  if (!user) {
+    return res.sendStatus(404);
+  }
+
+  // schedule TESJ right now
+  jobQueue.enqueue(new TimeEntriesSyncJob(user));
+
+  return res.send('User\'s time entries sync job scheduled successfully.');
+});
+
 // Schedule jobs for given user
 app.post('/api/start/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Response) => {
   const userId = req.params.userId;

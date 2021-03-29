@@ -86,26 +86,6 @@ export class RedmineSyncedService implements SyncedService {
     return projects.concat(additionalServiceObjects);
   }
 
-  async getServiceObject(id: string | number, objectType: string): Promise<ServiceObject | undefined> {
-    switch (objectType) {
-      case this._projectsType:
-        return (await this._getAllProjects()).find(project => project.id === id);
-      default:
-        return (await this._getAllAdditionalServiceObjects()).find(serviceObject => serviceObject.id === id);
-    }
-  }
-
-  async getServiceObjectByName(objectId: string | number, objectName: string, objectType: string): Promise<ServiceObject | undefined> {
-    const realName = this.getFullNameForServiceObject(new ServiceObject(objectId, objectName, objectType));
-
-    switch (objectType) {
-      case this._projectsType:
-        return (await this._getAllProjects()).find(project => project.name === realName);
-      default:
-        return (await this._getAllAdditionalServiceObjects()).find(serviceObject => serviceObject.name === realName);
-    }
-  }
-
   async createServiceObject(): Promise<ServiceObject> {
     // TODO implement
     throw new Error("Method not implemented.");
@@ -364,7 +344,7 @@ export class RedmineSyncedService implements SyncedService {
       comments: text,
       user_id: this._serviceDefinition.config.userId,
       // if activityId not specified => fill with default from config
-      activity_id: activityId ? activityId : this._serviceDefinition.config.defaultTimeEntryActivityId,
+      activity_id: activityId ? activityId : this._serviceDefinition.config.defaultTimeEntryActivity?.id,
     };
   
     if (issueId) {

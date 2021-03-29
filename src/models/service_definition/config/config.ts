@@ -2,11 +2,23 @@ export class Config {
   /**
    * below Toggl specific
    */
-  workspaceId?: string | number | null;
+  workspace?: Workspace | null;
   /**
    * below Redmine specific
    */
   apiPoint?: string | null;
-  defaultTimeEntryActivityId?: number | null;
+
+  defaultTimeEntryActivity?: DefaultTimeEntryActivity | null;
+
   userId?: number;
+}
+
+class Workspace {
+  id!: string | number;
+  name!: string;
+}
+
+class DefaultTimeEntryActivity {
+  id!: string | number;
+  name!: string;
 }
