@@ -102,6 +102,11 @@ app.post('/api/schedule_time_entries_job/:userId([a-zA-Z0-9]{24})', async (req: 
     return res.sendStatus(404);
   }
 
+  // schedule only if at least one configSyncJob finished
+  if (!user.configSyncJobDefinition.lastSuccessfullyDone) {
+    return res.sendStatus(409);
+  }
+
   // schedule TESJ right now
   jobQueue.enqueue(new TimeEntriesSyncJob(user));
 
