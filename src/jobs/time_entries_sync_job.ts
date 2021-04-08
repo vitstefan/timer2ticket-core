@@ -14,7 +14,7 @@ export class TimeEntriesSyncJob extends SyncJob {
    * This job takes all unsynced time entries from services and synces them across all other services
    * Synces time entries, that are identified with the user's mappings
    */
-  async doTheJob(): Promise<boolean> {
+  async _doTheJob(): Promise<boolean> {
     let now = new Date();
     // const someDaysAgo = new Date(now.setDate(now.getDate() - 35));
     now = new Date();

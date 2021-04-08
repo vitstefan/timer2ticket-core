@@ -42,7 +42,7 @@ cron.schedule('*/10 * * * * *', () => {
     if (job) {
       console.log(' -> Do the job');
       try {
-        job.doTheJob().then(res => {
+        job.start().then(res => {
           if (res) {
             console.log(' -> Job successfully done.');
           } else {
@@ -69,6 +69,20 @@ cron.schedule('*/10 * * * * *', () => {
 app.listen(Constants.appPort, async () => {
   await databaseService.init();
 
+  // schedule once a month jobLogs cleanUp job
+  databaseService.cleanUpJobLogs();
+  cron.schedule('0 3 3 */1 *', async () => {
+    const sentryTransaction = Sentry.startTransaction({
+      op: 'clean-up-job-logs',
+      name: 'Clean up job logs transaction',
+    });
+    const res = await databaseService.cleanUpJobLogs();
+    if (!res) {
+      Sentry.captureMessage('Job logs clean up unsuccessful.');
+    }
+    sentryTransaction.finish();
+  });
+
   const activeUsers = await databaseService.getActiveUsers();
 
   activeUsers.forEach(user => {
@@ -88,7 +102,12 @@ app.post('/api/schedule_config_job/:userId([a-zA-Z0-9]{24})', async (req: Reques
   }
 
   // schedule CSJ right now
-  jobQueue.enqueue(new ConfigSyncJob(user));
+  const jobLog = await databaseService.createJobLog(user._id, 'config', 'manual');
+  if (!jobLog) {
+    return res.sendStatus(503);
+  }
+
+  jobQueue.enqueue(new ConfigSyncJob(user, jobLog));
 
   return res.send('User\'s config sync job scheduled successfully.');
 });
@@ -108,7 +127,11 @@ app.post('/api/schedule_time_entries_job/:userId([a-zA-Z0-9]{24})', async (req: 
   }
 
   // schedule TESJ right now
-  jobQueue.enqueue(new TimeEntriesSyncJob(user));
+  const jobLog = await databaseService.createJobLog(user._id, 'time-entries', 'manual');
+  if (!jobLog) {
+    return res.sendStatus(503);
+  }
+  jobQueue.enqueue(new TimeEntriesSyncJob(user, jobLog));
 
   return res.send('User\'s time entries sync job scheduled successfully.');
 });
@@ -140,7 +163,11 @@ app.post('/api/start/:userId([a-zA-Z0-9]{24})', async (req: Request, res: Respon
   }
 
   // schedule CSJ right now
-  jobQueue.enqueue(new ConfigSyncJob(user));
+  const jobLog = await databaseService.createJobLog(user._id, 'config', 't2t-auto');
+  if (!jobLog) {
+    return res.sendStatus(503);
+  }
+  jobQueue.enqueue(new ConfigSyncJob(user, jobLog));
   // and schedule next CSJs and TESJs by the user's normal schedule
   scheduleJobs(user);
 
@@ -196,8 +223,11 @@ function scheduleJobs(user: User) {
       // grab fresh user with all updated values
       const actualUser = await databaseService.getUserById(user._id.toString());
       if (actualUser) {
-        console.log(' -> Added ConfigSyncJob');
-        jobQueue.enqueue(new ConfigSyncJob(actualUser));
+        const jobLog = await databaseService.createJobLog(user._id, 'config', 't2t-auto');
+        if (jobLog) {
+          console.log(' -> Added ConfigSyncJob');
+          jobQueue.enqueue(new ConfigSyncJob(actualUser, jobLog));
+        }
       }
     });
     activeUsersScheduledConfigSyncTasks.set(user._id.toString(), task);
@@ -209,8 +239,11 @@ function scheduleJobs(user: User) {
       const actualUser = await databaseService.getUserById(user._id.toString());
       // check if not null => there was at least 1 successful config job done => basic mappings should be there
       if (actualUser?.configSyncJobDefinition.lastSuccessfullyDone) {
-        console.log(' -> Added TESyncJob');
-        jobQueue.enqueue(new TimeEntriesSyncJob(actualUser));
+        const jobLog = await databaseService.createJobLog(user._id, 'time-entries', 't2t-auto');
+        if (jobLog) {
+          console.log(' -> Added TESyncJob');
+          jobQueue.enqueue(new TimeEntriesSyncJob(actualUser, jobLog));
+        }
       }
     });
     activeUsersScheduledTimeEntriesSyncTasks.set(user._id.toString(), task);

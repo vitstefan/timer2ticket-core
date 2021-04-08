@@ -110,7 +110,7 @@ export class RedmineSyncedService implements SyncedService {
   // ***********************************************************
 
   private async _getAllProjects(): Promise<ServiceObject[]> {
-    let anotherRequest = true;
+    let totalCount = 0;
 
     const queryParams = {
       limit: this._responseLimit,
@@ -139,11 +139,8 @@ export class RedmineSyncedService implements SyncedService {
       });
 
       queryParams.offset += queryParams.limit;
-
-      if (queryParams.offset >= response.body?.total_count) {
-        anotherRequest = false;
-      }
-    } while (anotherRequest);
+      totalCount = response.body?.total_count;
+    } while (queryParams.offset < totalCount);
 
     return projects;
   }
@@ -171,7 +168,7 @@ export class RedmineSyncedService implements SyncedService {
    * Return Issues and Activities both in array of service objects
    */
   private async _getAllAdditionalServiceObjects(): Promise<ServiceObject[]> {
-    let anotherRequest = true;
+    let totalCount = 0;
 
     const queryParams = {
       limit: this._responseLimit,
@@ -201,11 +198,8 @@ export class RedmineSyncedService implements SyncedService {
       });
 
       queryParams.offset += queryParams.limit;
-
-      if (queryParams.offset >= responseIssues.body?.total_count) {
-        anotherRequest = false;
-      }
-    } while (anotherRequest);
+      totalCount = responseIssues.body?.total_count;
+    } while (queryParams.offset < totalCount);
 
     const timeEntryActivities: ServiceObject[] = [];
 
@@ -251,7 +245,7 @@ export class RedmineSyncedService implements SyncedService {
   // ***********************************************************
 
   async getTimeEntries(start?: Date, end?: Date): Promise<TimeEntry[]> {
-    let anotherRequest = true;
+    let totalCount = 0;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const queryParams: Record<string, any> = {
@@ -300,11 +294,8 @@ export class RedmineSyncedService implements SyncedService {
       });
 
       queryParams.offset += queryParams.limit;
-
-      if (queryParams.offset >= response.body?.total_count) {
-        anotherRequest = false;
-      }
-    } while (anotherRequest);
+      totalCount = response.body?.total_count;
+    } while (queryParams.offset < totalCount);
 
     return entries;
   }
@@ -346,7 +337,7 @@ export class RedmineSyncedService implements SyncedService {
       // if activityId not specified => fill with default from config
       activity_id: activityId ? activityId : this._serviceDefinition.config.defaultTimeEntryActivity?.id,
     };
-  
+
     if (issueId) {
       timeEntryBody['issue_id'] = issueId;
     } else if (projectId) {

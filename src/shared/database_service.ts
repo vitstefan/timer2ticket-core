@@ -2,11 +2,13 @@ import { Constants } from './constants';
 import { Collection, Db, MongoClient, ObjectId } from "mongodb";
 import { User } from '../models/user';
 import { TimeEntrySyncedObject } from '../models/synced_service/time_entry_synced_object/time_entry_synced_object';
+import { JobLog } from '../models/jobLog';
 
 export class DatabaseService {
   private static _mongoDbName = 'timer2ticketDB';
   private static _usersCollectionName = 'users';
   private static _timeEntrySyncedObjectsCollectionName = 'timeEntrySyncedObjects';
+  private static _jobLogsCollectionName = 'jobLogs';
 
   private static _instance: DatabaseService;
 
@@ -15,9 +17,9 @@ export class DatabaseService {
 
   private _usersCollection: Collection<User> | undefined;
   private _timeEntrySyncedObjectsCollection: Collection<TimeEntrySyncedObject> | undefined;
+  private _jobLogsCollection: Collection<JobLog> | undefined;
 
-  private _isReady = false;
-  isReady = (): boolean => this._isReady;
+  private _initCalled = false;
 
   public static get Instance(): DatabaseService {
     return this._instance || (this._instance = new this());
@@ -33,6 +35,11 @@ export class DatabaseService {
    * Needs to be called (and awaited) to correctly connect to the database
    */
   public async init(): Promise<boolean> {
+    if (this._initCalled) {
+      return false;
+    }
+    this._initCalled = true;
+
     // Make a connection to MongoDB Service
     this._mongoClient = new MongoClient(Constants.mongoDbUrl, { useUnifiedTopology: true });
 
@@ -45,6 +52,7 @@ export class DatabaseService {
 
     this._usersCollection = this._db.collection(DatabaseService._usersCollectionName);
     this._timeEntrySyncedObjectsCollection = this._db.collection(DatabaseService._timeEntrySyncedObjectsCollectionName);
+    this._jobLogsCollection = this._db.collection(DatabaseService._jobLogsCollectionName);
 
     return true;
   }
@@ -87,7 +95,7 @@ export class DatabaseService {
     return result.result.ok === 1 ? result.ops[0] : null;
   }
 
-  async _updateUserPartly(user: User, updateQuery: Record<string, unknown>): Promise<boolean> {
+  private async _updateUserPartly(user: User, updateQuery: Record<string, unknown>): Promise<boolean> {
     if (!this._usersCollection) return false;
 
     const filterQuery = { _id: new ObjectId(user._id) };
@@ -141,6 +149,38 @@ export class DatabaseService {
     const filterQuery = { _id: new ObjectId(timeEntrySyncedObject._id) };
 
     const result = await this._timeEntrySyncedObjectsCollection.deleteOne(filterQuery);
+    return result.result.ok === 1;
+  }
+
+  // ***********************************************************
+  // JOB LOGS **************************************************
+  // ***********************************************************
+
+  async createJobLog(userId: string | ObjectId, type: string, origin: string): Promise<JobLog | null> {
+    if (!this._jobLogsCollection) return null;
+
+    const result = await this._jobLogsCollection.insertOne(new JobLog(userId, type, origin));
+    return result.result.ok === 1 ? result.ops[0] : null;
+  }
+
+  async updateJobLog(jobLog: JobLog): Promise<JobLog | null> {
+    if (!this._jobLogsCollection) return null;
+
+    const filterQuery = { _id: new ObjectId(jobLog._id) };
+
+    const result = await this._jobLogsCollection.replaceOne(filterQuery, jobLog);
+    return result.result.ok === 1 ? result.ops[0] : null;
+  }
+
+  async cleanUpJobLogs(): Promise<boolean> {
+    if (!this._jobLogsCollection) return false;
+
+    // remove 90 days old jobLogs
+    const scheduledFilter = new Date();
+    scheduledFilter.setDate(scheduledFilter.getDate() - 90);
+
+    const filterQuery = { scheduledDate: { $lt: scheduledFilter.getTime() } };
+    const result = await this._jobLogsCollection.deleteMany(filterQuery);
     return result.result.ok === 1;
   }
 }

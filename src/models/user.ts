@@ -6,7 +6,7 @@ import { ServiceDefinition } from "./service_definition/service_definition";
 export class User {
   _id!: string | ObjectId;
   username!: string;
-  password!: string;
+  passwordHash!: string;
   registrated!: Date;
   status!: string;
   configSyncJobDefinition!: JobDefinition;

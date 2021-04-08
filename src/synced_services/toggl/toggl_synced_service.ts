@@ -259,7 +259,7 @@ export class TogglTrackSyncedService implements SyncedService {
   // ***********************************************************
 
   async getTimeEntries(start?: Date): Promise<TimeEntry[]> {
-    let anotherRequest = true;
+    let totalCount = 0;
 
     const queryParams = {
       since: start?.toISOString(),
@@ -294,13 +294,9 @@ export class TogglTrackSyncedService implements SyncedService {
         );
       });
 
-      if (queryParams.page * this._responseLimit >= response.body?.total_count) {
-        anotherRequest = false;
-      }
-
       queryParams.page++;
-
-    } while (anotherRequest);
+      totalCount = response.body?.total_count;
+    } while (queryParams.page * this._responseLimit < totalCount);
 
     return entries;
   }
