@@ -58,7 +58,7 @@ export class RedmineSyncedService implements SyncedService {
    * @param request 
    * @returns 
    */
-  private async _retryAndWaitInCaseOfTooManyRequests(request: SuperAgentRequest): Promise<superagent.Response> {
+  private async _retryAndWaitInCaseOfTooManyRequests(request: SuperAgentRequest, body?: unknown): Promise<superagent.Response> {
     let needToWait = false;
 
     // call request but with chained retry
@@ -68,9 +68,8 @@ export class RedmineSyncedService implements SyncedService {
           // cannot wait here, since it cannot be async method (well it can, but it does not wait)
           needToWait = true;
         } else if (res.status === 422) {
-          console.error(res.body);
           console.error(res.body.errors);
-          console.error(res.body.errors.toString());
+          if (body) { console.error(body); }
         }
       });
 
@@ -348,7 +347,8 @@ export class RedmineSyncedService implements SyncedService {
         .accept('application/json')
         .type('application/json')
         .set('X-Redmine-API-Key', this._serviceDefinition.apiKey)
-        .send({ time_entry: timeEntryBody })
+        .send({ time_entry: timeEntryBody }),
+      timeEntryBody
     );
 
     if (!response || !response.ok) {
