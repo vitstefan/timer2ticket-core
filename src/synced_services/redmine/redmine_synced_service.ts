@@ -67,6 +67,10 @@ export class RedmineSyncedService implements SyncedService {
         if (res.status === 429) {
           // cannot wait here, since it cannot be async method (well it can, but it does not wait)
           needToWait = true;
+        } else if (res.status === 422) {
+          console.error(res.body);
+          console.error(res.body.errors);
+          console.error(res.body.errors.toString());
         }
       });
 

@@ -139,7 +139,6 @@ export class TimeEntriesSyncJob extends SyncJob {
           } catch (ex) {
             operationsOk = false;
             console.error('err: TESyncJob: a); exception');
-            console.error(ex);
           }
           // if null, TE is not meant to be synced
         }
@@ -160,7 +159,6 @@ export class TimeEntriesSyncJob extends SyncJob {
       } catch (ex) {
         operationsOk = false;
         console.error('err: TESyncJob: b), c), d), e); exception');
-        console.error(ex);
       }
     }
 
