@@ -265,13 +265,15 @@ export class TogglTrackSyncedService implements SyncedService {
       since: start?.toISOString(),
       workspace_id: this._serviceDefinition.config.workspace?.id,
       user_agent: 'Timer2Ticket',
-      page: 1,
+      page: 0,
     };
 
     const entries: TogglTimeEntry[] = [];
 
     // time entries via reports (paginate)
     do {
+      queryParams.page++;
+
       const response = await this._retryAndWaitInCaseOfTooManyRequests(
         superagent
           .get(this._reportsUri)
@@ -294,7 +296,6 @@ export class TogglTrackSyncedService implements SyncedService {
         );
       });
 
-      queryParams.page++;
       totalCount = response.body?.total_count;
     } while (queryParams.page * this._responseLimit < totalCount);
 

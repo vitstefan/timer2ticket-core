@@ -244,7 +244,7 @@ export class RedmineSyncedService implements SyncedService {
   // TIME ENTRIES **********************************************
   // ***********************************************************
 
-  async getTimeEntries(start?: Date, end?: Date): Promise<TimeEntry[]> {
+  async getTimeEntries(start?: Date): Promise<TimeEntry[]> {
     let totalCount = 0;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -253,13 +253,7 @@ export class RedmineSyncedService implements SyncedService {
       offset: 0,
       user_id: this._serviceDefinition.config.userId,
       from: start ? Utilities.getOnlyDateString(start) : null,
-      to: end ? Utilities.getOnlyDateString(end) : null,
     };
-
-    if (start && end) {
-      queryParams.from = Utilities.getOnlyDateString(start);
-      queryParams.to = Utilities.getOnlyDateString(end);
-    }
 
     const entries: RedmineTimeEntry[] = [];
 

@@ -18,7 +18,7 @@ export class ConfigSyncJob extends SyncJob {
    * If not, updates mappings and propagates change through other services
    * Additionally, checks if anything is missing in the secondary services and it should be there (user could delete it by mistake)
    */
-  async _doTheJob(): Promise<boolean> {
+  protected async _doTheJob(): Promise<boolean> {
     const primaryServiceDefinition: ServiceDefinition | undefined
       = this._user.serviceDefinitions.find(serviceDefinition => serviceDefinition.isPrimary);
 
