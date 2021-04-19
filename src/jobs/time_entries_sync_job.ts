@@ -14,7 +14,7 @@ export class TimeEntriesSyncJob extends SyncJob {
    * This job takes all unsynced time entries from services and synces them across all other services
    * Synces time entries, that are identified with the user's mappings
    */
-   protected async _doTheJob(): Promise<boolean> {
+  protected async _doTheJob(): Promise<boolean> {
     let now = new Date();
     // const someDaysAgo = new Date(now.setDate(now.getDate() - 35));
     now = new Date();
@@ -151,8 +151,9 @@ export class TimeEntriesSyncJob extends SyncJob {
       try {
         if (await this._checkTimeEntrySyncedObject(timeEntrySyncedObjectWrapper)) {
           // some changes probably were made to TESO object, update it in db
-          operationsOk &&= await databaseService.updateTimeEntrySyncedObject(timeEntrySyncedObjectWrapper.timeEntrySyncedObject) !== null;
-          if (!operationsOk) {
+          const dbUpdateResult = await databaseService.updateTimeEntrySyncedObject(timeEntrySyncedObjectWrapper.timeEntrySyncedObject) !== null;
+          operationsOk &&= dbUpdateResult;
+          if (!dbUpdateResult) {
             console.error('err: TESyncJob: b), c), d), e); DB update');
           }
         }
