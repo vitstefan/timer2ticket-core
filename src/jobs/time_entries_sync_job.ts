@@ -125,7 +125,6 @@ export class TimeEntriesSyncJob extends SyncJob {
           const otherServiceTimeEntriesWrappers = serviceTimeEntriesWrappers
             .filter(stew => stew.serviceDefinition.name !== serviceTimeEntriesWrapper.serviceDefinition.name);
 
-          console.log('TESyncJob: a)');
           try {
             const newTimeEntrySyncedObject = await this._createTimeEntrySyncedObject(serviceTimeEntriesWrapper, otherServiceTimeEntriesWrappers, timeEntry);
             // if defined and not null => create TESO
@@ -135,9 +134,12 @@ export class TimeEntriesSyncJob extends SyncJob {
             } else if (newTimeEntrySyncedObject === undefined) {
               // if undefined => error
               operationsOk = false;
+              console.error('err: TESyncJob: a); undefined');
             }
           } catch (ex) {
             operationsOk = false;
+            console.error('err: TESyncJob: a); exception');
+            console.error(ex);
           }
           // if null, TE is not meant to be synced
         }
@@ -150,9 +152,14 @@ export class TimeEntriesSyncJob extends SyncJob {
         if (await this._checkTimeEntrySyncedObject(timeEntrySyncedObjectWrapper)) {
           // some changes probably were made to TESO object, update it in db
           operationsOk &&= await databaseService.updateTimeEntrySyncedObject(timeEntrySyncedObjectWrapper.timeEntrySyncedObject) !== null;
+          if (!operationsOk) {
+            console.error('err: TESyncJob: b), c), d), e); DB update');
+          }
         }
       } catch (ex) {
         operationsOk = false;
+        console.error('err: TESyncJob: b), c), d), e); exception');
+        console.error(ex);
       }
     }
 
@@ -262,7 +269,7 @@ export class TimeEntriesSyncJob extends SyncJob {
       } else {
         // scenario b2) + possibly c) or e)
         // seems ok for now, try if it is not c) or e) too
-        console.log('TESyncJob: b2)');
+        // console.log('TESyncJob: b2)');
       }
 
       for (const serviceTimeEntryObjectWrapper of timeEntrySyncedObjectWrapper.serviceTimeEntryObjectWrappers) {
