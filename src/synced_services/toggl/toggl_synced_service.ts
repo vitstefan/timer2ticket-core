@@ -264,6 +264,7 @@ export class TogglTrackSyncedService implements SyncedService {
     const queryParams = {
       since: start?.toISOString(),
       workspace_id: this._serviceDefinition.config.workspace?.id,
+      user_ids: this._serviceDefinition.config.userId,
       user_agent: 'Timer2Ticket',
       page: 0,
     };

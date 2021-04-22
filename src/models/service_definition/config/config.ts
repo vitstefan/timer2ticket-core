@@ -1,5 +1,9 @@
 export class Config {
   /**
+   * shared
+   */
+  userId!: number;
+  /**
    * below Toggl specific
    */
   workspace?: Workspace | null;
@@ -9,8 +13,6 @@ export class Config {
   apiPoint?: string | null;
 
   defaultTimeEntryActivity?: DefaultTimeEntryActivity | null;
-
-  userId?: number;
 }
 
 class Workspace {
