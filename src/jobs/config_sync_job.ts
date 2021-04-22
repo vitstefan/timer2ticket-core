@@ -261,11 +261,18 @@ export class ConfigSyncJob extends SyncJob {
       if (!serviceDefinition || serviceDefinition.isPrimary) continue;
 
       const syncedService = SyncedServiceCreator.create(serviceDefinition);
+      let operationOk = true;
       try {
-        operationsOk &&= await syncedService.deleteServiceObject(mappingObject.id, mappingObject.type);
+        operationOk = await syncedService.deleteServiceObject(mappingObject.id, mappingObject.type);
       } catch (ex) {
-        console.error('err: ConfigSyncJob: delete; exception');
+        if (ex.status === 404) {
+          // service object is missing, it is ok to delete the mapping
+          operationOk = true;
+        } else {
+          console.error('err: ConfigSyncJob: delete; exception');
+        }
       }
+      operationsOk &&= operationOk;
     }
 
     // if any of those operations did fail, return false
