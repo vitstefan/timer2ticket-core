@@ -74,15 +74,18 @@ export class ConfigSyncJob extends SyncJob {
 
     // Check all objectsToSync and their corresponding mapping
     for (const objectToSync of objectsToSync) {
-      let mapping = this._user.mappings.find(mapping => mapping.primaryObjectId === objectToSync.id);
+      // find by its id and type (finding type in mapping.mappingsObjects is for legacy support)
+      let mapping = this._user.mappings.find(
+        mapping => mapping.primaryObjectId === objectToSync.id
+          && (mapping.primaryObjectType
+            ? mapping.primaryObjectType === objectToSync.type
+            : mapping.mappingsObjects.find(mo => mo.service === primaryServiceDefinition.name)?.type === objectToSync.type));
 
       try {
         if (!mapping) {
           // scenario a)
-          console.log('ConfigSyncJob: create');
           mapping = await this._createMapping(objectToSync, secondaryServicesWrappersMap);
         } else {
-          console.log('ConfigSyncJob: check');
           // scenario b), d), e), f)
           operationsOk &&= await this._checkMapping(objectToSync, mapping, secondaryServicesWrappersMap);
         }
@@ -92,6 +95,7 @@ export class ConfigSyncJob extends SyncJob {
         checkedMappings.push(mapping);
       } catch (ex) {
         operationsOk = false;
+        console.error('err: ConfigSyncJob: create || check; exception');
       }
     }
 
@@ -140,6 +144,7 @@ export class ConfigSyncJob extends SyncJob {
     // is wrapped in try catch block above
     const mapping = new Mapping();
     mapping.primaryObjectId = objectToSync.id;
+    mapping.primaryObjectType = objectToSync.type;
     mapping.name = objectToSync.name;
 
     // for each service, create mappingsObject
@@ -159,11 +164,9 @@ export class ConfigSyncJob extends SyncJob {
       }
 
       mapping.mappingsObjects.push(mappingsObject);
-      console.log(`ConfigSyncJob: Pushed serviceObject ${mappingsObject.type}`);
     }
 
     this._user.mappings.push(mapping);
-    console.log(`ConfigSyncJob: Pushed mapping ${mapping.name}`);
 
     return mapping;
   }
@@ -231,7 +234,6 @@ export class ConfigSyncJob extends SyncJob {
     let newObject;
     try {
       newObject = await serviceWrapper.syncedService.createServiceObject(objectToSync.id, objectToSync.name, objectToSync.type);
-      console.log(`ConfigSyncJob: Created object ${newObject.name}`);
     } catch (ex) {
       if (ex.status !== 400) {
         throw ex;
@@ -259,8 +261,11 @@ export class ConfigSyncJob extends SyncJob {
       if (!serviceDefinition || serviceDefinition.isPrimary) continue;
 
       const syncedService = SyncedServiceCreator.create(serviceDefinition);
-      operationsOk &&= await syncedService.deleteServiceObject(mappingObject.id, mappingObject.type);
-      console.log(`ConfigSyncJob: Deleted object ${mapping.name}`);
+      try {
+        operationsOk &&= await syncedService.deleteServiceObject(mappingObject.id, mappingObject.type);
+      } catch (ex) {
+        console.error('err: ConfigSyncJob: delete; exception');
+      }
     }
 
     // if any of those operations did fail, return false
