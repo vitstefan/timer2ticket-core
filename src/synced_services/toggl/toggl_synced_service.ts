@@ -117,6 +117,8 @@ export class TogglTrackSyncedService implements SyncedService {
         return serviceObject.name;
       case this._tagsType:
         return serviceObject.name;
+      case 'activity':
+        return `! ${serviceObject.name} (${serviceObject.type})`;
       case 'issue':
         return `#${serviceObject.id} ${serviceObject.name} (${serviceObject.type})`;
       default:
