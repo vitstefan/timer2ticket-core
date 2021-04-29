@@ -27,7 +27,7 @@ const jobQueue = new Queue<SyncJob>();
 const activeUsersScheduledConfigSyncTasks = new Map<string, cron.ScheduledTask>();
 const activeUsersScheduledTimeEntriesSyncTasks = new Map<string, cron.ScheduledTask>();
 
-// TODO cleanUpJob - removes old projects, issues etc.
+// cleanUpJob - removes old projects, issues etc. - not needed for now.
 
 // every 10 seconds check if jobQueue is not empty
 cron.schedule('*/10 * * * * *', () => {
@@ -45,19 +45,23 @@ cron.schedule('*/10 * * * * *', () => {
         job.start().then(res => {
           if (res) {
             console.log(' -> Job successfully done.');
-          } else {
-            console.log(' -> Job unsuccessful.');
-            // not successful, try to add again to the queue
-            // TODO uncomment, but be careful with it (if commented, job will be retried again in another schedule tick)
-            // do not want to be in the cycle => return to queue only twice or something...
-            // console.log(' -> Added job again');
-            // jobQueue.enqueue(job);
-            Sentry.captureMessage(`Job unsuccessful for user: ${job.userId}`);
+            return;
           }
+
+          // not successful, try to repeat it
+          console.log(' -> Repeating job');
+          job.start().then(resRepeated => {
+            if (resRepeated) {
+              console.log(' -> Job repeated and now successfully done.');
+              return;
+            }
+
+            console.log(' -> Job unsuccessful.');
+            Sentry.captureMessage(`Job unsuccessful for user: ${job.userId}`);
+          });
         });
       } catch (ex) {
         Sentry.captureException(ex);
-        // do not want to terminate whole app if something not ok
       } finally {
         sentryTransaction.finish();
       }

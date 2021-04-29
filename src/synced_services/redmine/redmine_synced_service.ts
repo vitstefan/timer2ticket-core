@@ -90,18 +90,18 @@ export class RedmineSyncedService implements SyncedService {
   }
 
   async createServiceObject(): Promise<ServiceObject> {
-    // TODO implement
-    throw new Error("Method not implemented.");
+    // Redmine cannot be secondary for now. So this method is not used.
+    throw new Error("Redmine is meant to be primary.");
   }
 
   async updateServiceObject(): Promise<ServiceObject> {
-    // TODO implement
-    throw new Error("Method not implemented.");
+    // Redmine cannot be secondary for now. So this method is not used.
+    throw new Error("Redmine is meant to be primary.");
   }
 
   async deleteServiceObject(): Promise<boolean> {
-    // TODO implement
-    throw new Error("Method not implemented.");
+    // Redmine cannot be secondary for now. So this method is not used.
+    throw new Error("Redmine is meant to be primary.");
   }
 
   getFullNameForServiceObject(serviceObject: ServiceObject): string {
@@ -146,21 +146,6 @@ export class RedmineSyncedService implements SyncedService {
     } while (queryParams.offset < totalCount);
 
     return projects;
-  }
-
-  private async _createProject(): Promise<ServiceObject> {
-    //TODO implement
-    throw new Error("Method not implemented.");
-  }
-
-  private async _updateProject(): Promise<ServiceObject> {
-    //TODO implement
-    throw new Error("Method not implemented.");
-  }
-
-  private async _deleteProject(): Promise<boolean> {
-    //TODO implement
-    throw new Error("Method not implemented.");
   }
 
   // ***********************************************************
@@ -226,21 +211,6 @@ export class RedmineSyncedService implements SyncedService {
 
     // return concatenation of two arrays
     return issues.concat(timeEntryActivities);
-  }
-
-  private async _createIssue(): Promise<ServiceObject> {
-    //TODO implement
-    throw new Error("Method not implemented.");
-  }
-
-  private async _updateIssue(): Promise<ServiceObject> {
-    //TODO implement
-    throw new Error("Method not implemented.");
-  }
-
-  private async _deleteIssue(): Promise<boolean> {
-    //TODO implement
-    throw new Error("Method not implemented.");
   }
 
   // ***********************************************************

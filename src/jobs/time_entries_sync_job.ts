@@ -23,8 +23,8 @@ export class TimeEntriesSyncJob extends SyncJob {
     // should care about the most later ones (or not? - discussion needed)
     // problem: Toggl does not support asking for TEs with lastUpdated filter
     // possible solution: get all and filter them here, but it would be kind of costly
-    // it is somewhat better and easier for now just taking all (35 days old) TEs
-    // beware of Toggl limit 1000 TEs for one request (now using reports api, so this should not be problem - paginating)
+    // it is somewhat better and easier for now just taking all TEs
+    // in the future, take only e.g. 60 days old.
 
     // uncomment to take only 35 days old TEs
     // const start = Utilities.compare(this._user.registrated, someDaysAgo) > 0
