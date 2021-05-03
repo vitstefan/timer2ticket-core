@@ -197,12 +197,18 @@ export class TimeEntriesSyncJob extends SyncJob {
     }
 
     for (const otherServiceDefinition of otherServiceTimeEntriesWrappers) {
-      await this._createTimeEntryBasedOnTimeEntryModelAndServiceDefinition(
+      const createdTimeEntry = await this._createTimeEntryBasedOnTimeEntryModelAndServiceDefinition(
         otherServicesMappingsObjects,
         otherServiceDefinition.serviceDefinition,
         timeEntry,
         newTimeEntrySyncedObjectResult,
       );
+
+      if (!createdTimeEntry) {
+        // TE not created, could be the case when no project was selected and TE is not meant to sync
+        // if problem with HTTP request (returned 4xx or something else), it would fall to exception (and job will be retried)
+        return null;
+      }
     }
 
     if (newTimeEntrySyncedObjectResult.serviceTimeEntryObjects.length <= 1) {
